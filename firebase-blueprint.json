@@ -1,0 +1,120 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Main user document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "User UID from Firebase Auth" },
+        "name": { "type": "string", "description": "User's full name" },
+        "email": { "type": "string", "description": "User's email address" },
+        "photoUrl": { "type": "string", "description": "URL to the user's profile picture" },
+        "verified": { "type": "boolean", "description": "Whether the user is verified" },
+        "verificationStatus": { "type": "string", "enum": ["none", "pending", "approved", "rejected"], "description": "Status of the verification process" },
+        "plan": { "type": "string", "enum": ["free", "pro"], "description": "User's subscription plan" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "User's role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user was created" }
+      },
+      "required": ["id", "name", "email", "verified", "verificationStatus", "plan", "createdAt"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "A service offered by a provider",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the service" },
+        "title": { "type": "string", "description": "Title of the service" },
+        "description": { "type": "string", "description": "Detailed description of the service" },
+        "price": { "type": "number", "description": "Price of the service" },
+        "providerId": { "type": "string", "description": "UID of the provider" },
+        "images": { "type": "array", "items": { "type": "string" }, "description": "Array of image URLs" },
+        "rating": { "type": "number", "description": "Average rating" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the service was created" }
+      },
+      "required": ["id", "title", "description", "price", "providerId", "images", "createdAt"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "A service reservation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the booking" },
+        "clientId": { "type": "string", "description": "UID of the client" },
+        "providerId": { "type": "string", "description": "UID of the provider" },
+        "serviceId": { "type": "string", "description": "ID of the service" },
+        "date": { "type": "string", "description": "Reservation date (YYYY-MM-DD)" },
+        "time": { "type": "string", "description": "Reservation time (HH:mm)" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected", "completed"], "description": "Booking status" },
+        "message": { "type": "string", "description": "Message from the client" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the booking was created" }
+      },
+      "required": ["id", "clientId", "providerId", "serviceId", "date", "time", "status", "createdAt"]
+    },
+    "Follow": {
+      "title": "Follow Relationship",
+      "description": "Represents a follow relationship between two users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the follow" },
+        "followerId": { "type": "string", "description": "UID of the follower" },
+        "followingId": { "type": "string", "description": "UID of the following user" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the follow occurred" }
+      },
+      "required": ["id", "followerId", "followingId", "createdAt"]
+    },
+    "Verification": {
+      "title": "Verification Request",
+      "description": "A request for identity verification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the verification" },
+        "userId": { "type": "string", "description": "UID of the user" },
+        "biFront": { "type": "string", "description": "URL to BI front image" },
+        "biBack": { "type": "string", "description": "URL to BI back image" },
+        "selfie": { "type": "string", "description": "URL to selfie image" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"], "description": "Verification status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the request was created" }
+      },
+      "required": ["id", "userId", "biFront", "biBack", "selfie", "status", "createdAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A message in a conversation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the message" },
+        "conversationId": { "type": "string", "description": "ID of the conversation" },
+        "senderId": { "type": "string", "description": "UID of the sender" },
+        "text": { "type": "string", "description": "The message text" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the message was sent" }
+      },
+      "required": ["id", "conversationId", "senderId", "text", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and settings"
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Marketplace services"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Service reservations"
+    },
+    "/followers/{followId}": {
+      "schema": "Follow",
+      "description": "User follow relationships"
+    },
+    "/verifications/{verificationId}": {
+      "schema": "Verification",
+      "description": "Identity verification requests"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages"
+    }
+  }
+}

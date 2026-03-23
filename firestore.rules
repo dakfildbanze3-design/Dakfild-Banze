@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "dakfildbanze3@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'verified', 'verificationStatus', 'plan', 'createdAt']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() < 100 &&
+             data.verified is bool &&
+             data.verificationStatus in ['none', 'pending', 'approved', 'rejected'] &&
+             data.plan in ['free', 'pro'] &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() < 500)) &&
+             (!('role' in data) || (data.role in ['user', 'admin']));
+    }
+
+    function isValidService(data) {
+      return data.keys().hasAll(['id', 'title', 'description', 'price', 'providerId', 'images', 'createdAt']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string && data.description.size() < 2000 &&
+             data.price is number && data.price >= 0 &&
+             data.providerId is string && data.providerId.size() > 0 &&
+             data.images is list && data.images.size() <= 10 &&
+             (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5));
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['id', 'clientId', 'providerId', 'serviceId', 'date', 'time', 'status', 'createdAt']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.clientId is string &&
+             data.providerId is string &&
+             data.serviceId is string &&
+             data.date is string && data.date.size() == 10 &&
+             data.time is string && data.time.size() == 5 &&
+             data.status in ['pending', 'accepted', 'rejected', 'completed'] &&
+             (!('message' in data) || (data.message is string && data.message.size() < 500)) &&
+             (!('serviceTitle' in data) || (data.serviceTitle is string && data.serviceTitle.size() < 200));
+    }
+
+    function isValidFollow(data) {
+      return data.keys().hasAll(['id', 'followerId', 'followingId', 'createdAt']) &&
+             data.id is string &&
+             data.followerId is string &&
+             data.followingId is string;
+    }
+
+    function isValidVerification(data) {
+      return data.keys().hasAll(['id', 'userId', 'biFront', 'biBack', 'selfie', 'status', 'createdAt']) &&
+             data.id is string &&
+             data.userId is string &&
+             data.biFront is string && data.biFront.size() < 1000 &&
+             data.biBack is string && data.biBack.size() < 1000 &&
+             data.selfie is string && data.selfie.size() < 1000 &&
+             data.status in ['pending', 'approved', 'rejected'];
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['id', 'conversationId', 'senderId', 'text', 'createdAt']) &&
+             data.id is string &&
+             data.conversationId is string &&
+             data.senderId is string &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 2000;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // 1. Users
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if (isOwner(userId) && 
+                        request.resource.data.role == resource.data.role &&
+                        request.resource.data.email == resource.data.email) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 2. Services
+    match /services/{serviceId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidService(request.resource.data) && request.resource.data.providerId == request.auth.uid;
+      allow update: if (isAuthenticated() && resource.data.providerId == request.auth.uid && isValidService(request.resource.data)) || isAdmin();
+      allow delete: if (isAuthenticated() && resource.data.providerId == request.auth.uid) || isAdmin();
+    }
+
+    // 3. Bookings
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated() && (resource.data.clientId == request.auth.uid || resource.data.providerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidBooking(request.resource.data) && request.resource.data.clientId == request.auth.uid;
+      allow update: if isAuthenticated() && 
+                      (
+                        (resource.data.clientId == request.auth.uid && request.resource.data.status == resource.data.status) ||
+                        (resource.data.providerId == request.auth.uid && request.resource.data.clientId == resource.data.clientId) ||
+                        isAdmin()
+                      );
+      allow delete: if isAdmin();
+    }
+
+    // 4. Followers
+    match /followers/{followId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidFollow(request.resource.data) && request.resource.data.followerId == request.auth.uid;
+      allow delete: if isAuthenticated() && (resource.data.followerId == request.auth.uid || isAdmin());
+    }
+
+    // 5. Verifications
+    match /verifications/{verificationId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidVerification(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // 6. Messages
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && (resource.data.senderId == request.auth.uid || isAdmin()); // Simplified, ideally check conversation participants
+      allow create: if isAuthenticated() && isValidMessage(request.resource.data) && request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+  }
+}
